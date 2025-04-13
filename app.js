@@ -1,116 +1,136 @@
 /**
- * 開始日時
- * @type {Date}
+ * Alternate-Day Fasting Timer
+ * 48時間周期で食事期間と絶食期間を交互に表示するアプリケーション
  */
-const startDate = new Date('2024-06-01T08:00:00');
-/**
- * 状態を表示する要素
- * @type {HTMLElement}
- */
-const statusElement = document.getElementById('status');
-/**
- * 残り時間を表示する要素
- * @type {HTMLElement}
- */
-const remainingTimeElement = document.getElementById('remaining-time');
-/**
- * コンテナ要素
- * @type {HTMLElement}
- */
-const containerElement = document.querySelector('.container');
+
+// アプリケーション設定
+const CONFIG = {
+  startDate: new Date('2024-06-01T08:00:00'),
+  eatingHours: {
+    start: 9, // 食事開始時間
+    end: 21    // 食事終了時間
+  },
+  updateInterval: 1000, // 更新間隔（ミリ秒）
+  texts: {
+    eating: '食事期間',
+    fasting: '絶食中',
+    nextPeriod: '次の{0}まで残り {1}'
+  }
+};
+
+// DOM要素の参照をキャッシュ
+const elements = {
+  status: document.getElementById('status'),
+  remainingTime: document.getElementById('remaining-time'),
+  container: document.querySelector('.container')
+};
 
 /**
  * 秒数を時間、分、秒にフォーマットする
  * @param {number} totalSeconds - 総秒数
- * @returns {string} - フォーマットされた時間文字列
+ * @returns {string} - フォーマットされた時間文字列 (HH:MM:SS)
  */
 function formatTime(totalSeconds) {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  
+  return [hours, minutes, seconds]
+    .map(num => num.toString().padStart(2, '0'))
+    .join(':');
 }
 
 /**
- * 状態を更新する
+ * 現在の状態（食事期間または絶食期間）を計算する
+ * @returns {Object} - 現在の状態と次の状態までの残り時間
  */
-function updateStatus() {
-    const currentDate = new Date();
-    
-    /**
-     * 開始日時からの経過ミリ秒数
-     * @type {number}
-     */
-    const elapsedMilliseconds = currentDate - startDate;
-    
-    /**
-     * 開始日時からの経過日数（48時間サイクル内の日数）
-     * @type {number}
-     */
-    const cycleDay = Math.floor(elapsedMilliseconds / (24 * 60 * 60 * 1000)) % 2;
-    
-    /**
-     * 現在の時間（時）
-     * @type {number}
-     */
-    const currentHour = currentDate.getHours();
-    
-    /**
-     * 現在の時間（分）
-     * @type {number}
-     */
-    const currentMinute = currentDate.getMinutes();
-    
-    /**
-     * 現在の時間（秒）
-     * @type {number}
-     */
-    const currentSecond = currentDate.getSeconds();
-    
-    /**
-     * 食事期間かどうか（偶数日の10:00-18:00の間のみ食事可能）
-     * @type {boolean}
-     */
-    const isEatingPeriod = cycleDay === 0 && currentHour >= 10 && currentHour < 18;
-    
-    // 状態を更新
-    statusElement.textContent = isEatingPeriod ? '食事期間' : '絶食中';
-    containerElement.classList.toggle('eating', isEatingPeriod);
-    containerElement.classList.toggle('fasting', !isEatingPeriod);
-    
-    /**
-     * 次の状態までの残り秒数を計算
-     * @type {number}
-     */
-    let remainingSeconds;
-    
-    if (isEatingPeriod) {
-        // 食事期間中 -> 次の絶食期間（18:00）までの残り秒数
-        remainingSeconds = ((17 - currentHour) * 60 + (59 - currentMinute)) * 60 + (60 - currentSecond);
+function calculateCurrentState() {
+  const now = new Date();
+  const elapsedMs = now - CONFIG.startDate;
+  
+  // 48時間周期内の日数（0 = 食事可能日, 1 = 絶食日）
+  const cycleDay = Math.floor(elapsedMs / (24 * 60 * 60 * 1000)) % 2;
+  
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentSecond = now.getSeconds();
+  
+  // 食事期間かどうか（偶数日の9:00-21:00の間のみ食事可能）
+  const isEatingPeriod = cycleDay === 0 && 
+                         currentHour >= CONFIG.eatingHours.start && 
+                         currentHour < CONFIG.eatingHours.end;
+  
+  // 次の状態までの残り秒数を計算
+  let remainingSeconds;
+  
+  if (isEatingPeriod) {
+    // 食事期間中 -> 次の絶食期間までの残り秒数
+    remainingSeconds = (
+      (CONFIG.eatingHours.end - 1 - currentHour) * 3600 + 
+      (59 - currentMinute) * 60 + 
+      (60 - currentSecond)
+    );
+  } else {
+    // 絶食期間中
+    if (cycleDay === 0) {
+      if (currentHour < CONFIG.eatingHours.start) {
+        // 食事可能日の食事前 -> 今日の食事開始時間までの残り秒数
+        remainingSeconds = (
+          (CONFIG.eatingHours.start - 1 - currentHour) * 3600 + 
+          (59 - currentMinute) * 60 + 
+          (60 - currentSecond)
+        );
+      } else {
+        // 食事可能日の食事後 -> 翌々日の食事開始時間までの残り秒数
+        const hoursUntilMidnight = (23 - currentHour) * 3600 + (59 - currentMinute) * 60 + (60 - currentSecond);
+        remainingSeconds = hoursUntilMidnight + 24 * 3600 + CONFIG.eatingHours.start * 3600;
+      }
     } else {
-        // 絶食期間中
-        if (cycleDay === 0) {
-            // 食事可能日の食事前 -> 今日の10:00までの残り秒数
-            if (currentHour < 10) {
-                remainingSeconds = ((9 - currentHour) * 60 + (59 - currentMinute)) * 60 + (60 - currentSecond);
-            } else {
-                // 食事可能日の食事後 -> 翌々日（次のサイクル）の10:00までの残り秒数
-                const hoursUntilMidnight = ((23 - currentHour) * 60 + (59 - currentMinute)) * 60 + (60 - currentSecond);
-                // 翌日の24時間（終日絶食）+ 翌々日の10時までの時間
-                remainingSeconds = hoursUntilMidnight + 24 * 60 * 60 + 10 * 60 * 60;
-            }
-        } else {
-            // 絶食日 -> 翌日の10:00までの残り秒数
-            const hoursUntilMidnight = ((23 - currentHour) * 60 + (59 - currentMinute)) * 60 + (60 - currentSecond);
-            remainingSeconds = hoursUntilMidnight + 10 * 60 * 60;
-        }
+      // 絶食日 -> 翌日の食事開始時間までの残り秒数
+      const hoursUntilMidnight = (23 - currentHour) * 3600 + (59 - currentMinute) * 60 + (60 - currentSecond);
+      remainingSeconds = hoursUntilMidnight + CONFIG.eatingHours.start * 3600;
     }
-    
-    // 残り時間を更新
-    remainingTimeElement.textContent = `次の${isEatingPeriod ? '絶食' : '食事'}まで残り ${formatTime(remainingSeconds)}`;
+  }
+  
+  return {
+    isEatingPeriod,
+    remainingSeconds
+  };
 }
 
-// 1秒ごとに状態を更新
-setInterval(updateStatus, 1000);
-// 初回実行
-updateStatus();
+/**
+ * UI要素を更新する
+ */
+function updateUI() {
+  const state = calculateCurrentState();
+  
+  // テキスト更新
+  elements.status.textContent = state.isEatingPeriod ? CONFIG.texts.eating : CONFIG.texts.fasting;
+  
+  const nextPeriodText = state.isEatingPeriod ? CONFIG.texts.fasting : CONFIG.texts.eating;
+  elements.remainingTime.textContent = CONFIG.texts.nextPeriod
+    .replace('{0}', nextPeriodText)
+    .replace('{1}', formatTime(state.remainingSeconds));
+  
+  // クラス更新
+  elements.container.classList.toggle('eating', state.isEatingPeriod);
+  elements.container.classList.toggle('fasting', !state.isEatingPeriod);
+}
+
+/**
+ * アプリケーションの初期化
+ */
+function initApp() {
+  // 初回更新
+  updateUI();
+  
+  // 定期更新のタイマーをセット
+  setInterval(updateUI, CONFIG.updateInterval);
+}
+
+// DOMの読み込みが完了したらアプリケーションを初期化
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

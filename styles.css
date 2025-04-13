@@ -1,49 +1,95 @@
-body {
+:root {
+    --eating-bg: #e0f7fa;
+    --eating-text: #00838f;
+    --fasting-bg: #ffebee;
+    --fasting-text: #c62828;
+}
+
+* {
+    box-sizing: border-box;
     margin: 0;
-    font-family: 'Roboto', sans-serif;
+    padding: 0;
+}
+
+body {
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
     height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
     background-color: #000;
+    color: #fff;
 }
 
 .container {
     text-align: center;
-    padding: 2vw;
-    border-radius: 1vw;
-    box-shadow: 0 0.5vw 1vw rgba(0, 0, 0, 0.1);
-    width: 90vw;
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+    width: 90%;
     max-width: 600px;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .status {
-    font-size: 8vw;
+    font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 1vw;
+    margin-bottom: 1rem;
 }
 
 .remaining-time {
-    font-size: 4vw;
+    font-size: 1.25rem;
     font-weight: 300;
 }
 
 .eating {
-    background-color: #e0f7fa;
-    color: #00838f;
+    background-color: var(--eating-bg);
+    color: var(--eating-text);
 }
 
 .fasting {
-    background-color: #ffebee;
-    color: #c62828;
+    background-color: var(--fasting-bg);
+    color: var(--fasting-text);
 }
 
-@media screen and (min-width: 600px) {
+/* スマートフォン (縦向き) */
+@media screen and (max-width: 480px) {
     .status {
-        font-size: 48px;
+        font-size: 2rem;
     }
-
+    
     .remaining-time {
-        font-size: 24px;
+        font-size: 1rem;
+    }
+    
+    .container {
+        width: 95%;
+        padding: 1.5rem;
+    }
+}
+
+/* タブレットとスマートフォン (横向き) */
+@media screen and (min-width: 481px) and (max-width: 768px) {
+    .status {
+        font-size: 2.25rem;
+    }
+    
+    .remaining-time {
+        font-size: 1.15rem;
+    }
+}
+
+/* デスクトップ */
+@media screen and (min-width: 769px) {
+    .status {
+        font-size: 3rem;
+    }
+    
+    .remaining-time {
+        font-size: 1.5rem;
+    }
+    
+    .container {
+        padding: 2.5rem;
     }
 }
